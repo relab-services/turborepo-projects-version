@@ -121,7 +121,7 @@ steps:
           echo "Building ${{ matrix.project.name }}@${{ matrix.project.version }}"
           echo "Path: ${{ matrix.project.path }}"
           # docker build -t ${{ matrix.project.identifier }}:${{ matrix.project.version }} \
-          #   ${{ matrix.project.path }}
+          #     ${{ matrix.project.path }}
 
   build-npm:
     needs: scan
@@ -236,11 +236,11 @@ my-monorepo/
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Run `npm run all` to format, lint, test, and build
-6. Submit a pull request
+1. Create a feature branch
+1. Make your changes
+1. Add tests for new functionality
+1. Run `npm run all` to format, lint, test, and build
+1. Submit a pull request
 
 ## License
 
