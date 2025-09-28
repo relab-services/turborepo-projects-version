@@ -75,8 +75,10 @@ const ensureTurboCache = async (turboVersion: string): Promise<void> => {
 
       // Save the npx cache for future runs
       try {
-        await cache.saveCache([npxCachePath], cacheKey)
-        core.info(`💾 Cached npx turbo@${turboVersion} for future runs`)
+        const result = await cache.saveCache([npxCachePath], cacheKey)
+        if (result) {
+          core.info(`💾 Cached npx turbo@${turboVersion} for future runs`)
+        }
       } catch (error) {
         core.warning(`Failed to save cache: ${error}`)
       }
