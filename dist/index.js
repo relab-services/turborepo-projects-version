@@ -1,7 +1,7 @@
 import require$$0 from 'os';
 import require$$0$1 from 'crypto';
-import require$$1 from 'fs';
-import require$$1$5 from 'path';
+import require$$1, { existsSync, readFileSync } from 'fs';
+import require$$1$5, { resolve } from 'path';
 import require$$2 from 'http';
 import require$$3 from 'https';
 import require$$0$4 from 'net';
@@ -27247,47 +27247,148 @@ function requireCore () {
 var coreExports = requireCore();
 
 /**
- * Waits for a number of milliseconds.
+ * Retrieves package information from a given package path.
  *
- * @param milliseconds The number of milliseconds to wait.
- * @returns Resolves with 'done!' after the wait is over.
+ * @param {string} packagePath - The absolute or relative path to the package directory.
+ * @returns {ProjectInfo | undefined} An object containing project information such as path, name, version, identifier, and build property,
+ *                                    or undefined if package.json does not exist at the specified path.
+ * @throws {Error} If the package.json exists but cannot be read or parsed.
  */
-async function wait(milliseconds) {
-    return new Promise((resolve) => {
-        if (isNaN(milliseconds))
-            throw new Error('milliseconds is not a number');
-        setTimeout(() => resolve('done!'), milliseconds);
-    });
-}
-
-/**
- * The main function for the action.
- *
- * @returns Resolves when the action is complete.
- */
-async function run() {
+const getPackageInfo = (packagePath) => {
+    const packageJsonPath = resolve(packagePath, 'package.json');
+    if (!existsSync(packageJsonPath)) {
+        coreExports.warning(`  ❌ No package.json found in ${packagePath}`);
+        return undefined;
+    }
     try {
-        const ms = coreExports.getInput('milliseconds');
-        // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-        coreExports.debug(`Waiting ${ms} milliseconds ...`);
-        // Log the current timestamp, wait, then log the new timestamp
-        coreExports.debug(new Date().toTimeString());
-        await wait(parseInt(ms, 10));
-        coreExports.debug(new Date().toTimeString());
-        // Set outputs for other workflow steps to use
-        coreExports.setOutput('time', new Date().toTimeString());
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+        const version = packageJson.version;
+        const packageName = packageJson.name;
+        const identifier = packageName
+            ?.replace(/\W+/g, '-')
+            .toLowerCase()
+            .replace(/^-+|-+$/g, '');
+        const build = packageJson.build;
+        return {
+            path: packagePath,
+            name: packageName,
+            version,
+            identifier,
+            build
+        };
+    }
+    catch {
+        throw new Error(`Failed to retrieve package info: ${packageJsonPath}`);
+    }
+};
+
+var execExports = requireExec();
+
+/** * Retrieves the version of Turborepo specified in the root package.json.
+ *
+ * @returns {string | undefined} The version of Turborepo if found in devDependencies or dependencies, otherwise undefined.
+ * @throws {Error} If the package.json cannot be read or parsed.
+ */
+const getTurboVersion = () => {
+    try {
+        if (!existsSync('package.json'))
+            return undefined;
+        const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+        return (packageJson.devDependencies?.turbo ||
+            packageJson.dependencies?.turbo);
+    }
+    catch {
+        throw new Error('Failed to fetch package.json in repo root folder');
+    }
+};
+/**
+ * Executes the Turborepo CLI to list all packages in the monorepo.
+ *
+ * @param {string} turboVersion - The version of Turborepo to use (e.g., "2.5.8").
+ * @returns {Promise<Array<{ name: string; path: string }>>} A promise that resolves to an array of package objects, each containing the package name and path.
+ * @throws {Error} If the command fails to execute or the output is not valid JSON.
+ */
+const getTurboPackages = async () => {
+    const turboVersion = getTurboVersion();
+    if (!turboVersion)
+        throw new Error('Repo does not have Turborepo installed');
+    coreExports.info(`🚀 Resolved Turborepo: ${turboVersion}`);
+    try {
+        const output = await execExports.getExecOutput('npx', [`turbo@${turboVersion}`, 'ls', '--output=json'], {
+            silent: true
+        });
+        if (output.exitCode !== 0)
+            throw new Error(`Failed to get turbo packages: ${output.stderr}`);
+        const json = output.stdout.match(/\{[\s\S]*\}/);
+        if (!json)
+            throw new Error('Turbo output is not valid JSON');
+        const result = JSON.parse(json[0]);
+        coreExports.info(`🚀 Found ${result.packages.items.length} turbo package(s): ${result.packages.items.map((item) => item.name).join(', ')}`);
+        return result.packages.items;
+    }
+    catch {
+        throw new Error('Failed to retrieve turbo packages');
+    }
+};
+
+const run = async () => {
+    try {
+        const result = await getProjects();
+        coreExports.setOutput('projects', JSON.stringify(result));
     }
     catch (error) {
-        // Fail the workflow run if an error occurs
-        if (error instanceof Error)
-            coreExports.setFailed(error.message);
+        coreExports.setFailed(`❌ Action failed: ${error instanceof Error ? error.message : String(error)}`);
     }
-}
-
-/**
- * The entrypoint for the action. This file simply imports and runs the action's
- * main logic.
- */
-/* istanbul ignore next */
+};
+const getProjects = async () => {
+    try {
+        const packages = await getTurboPackages();
+        coreExports.info(`🚀 Found ${packages.length} turbo package(s): ${packages.map((item) => item.name).join(', ')}`);
+        const result = {};
+        for (const pkg of packages) {
+            const packageInfo = getPackageInfo(pkg.path);
+            if (!packageInfo)
+                continue;
+            if (packageInfo.build) {
+                if (Array.isArray(packageInfo.build)) {
+                    // Add project to multiple build groups
+                    for (const build of packageInfo.build) {
+                        if (!result[build]) {
+                            result[build] = [];
+                        }
+                        result[build].push(packageInfo);
+                    }
+                }
+                else {
+                    // Add project to single build group
+                    if (!result[packageInfo.build]) {
+                        result[packageInfo.build] = [];
+                    }
+                    result[packageInfo.build].push(packageInfo);
+                }
+            }
+        }
+        if (Object.keys(result).length === 0) {
+            coreExports.info('⚠️ Nothing to build');
+            return result;
+        }
+        coreExports.info(' ');
+        for (const [buildType, projects] of Object.entries(result)) {
+            coreExports.info(`🟢 ${buildType}`);
+            for (const project of projects) {
+                const name = project.name || 'N/A';
+                const version = project.version || 'N/A';
+                const identifier = project.identifier || 'N/A';
+                coreExports.info(`🟡 ${name}@${version}: ${project.path} (${identifier})`);
+            }
+            coreExports.info(' ');
+        }
+        coreExports.info(`🚀 Done: ${Object.keys(result).length} build target(s), ${Object.values(result).reduce((acc, projects) => acc + projects.length, 0)} project(s)`);
+        return result;
+    }
+    catch (error) {
+        throw new Error(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+};
 run();
 //# sourceMappingURL=index.js.map
