@@ -120,8 +120,8 @@ steps:
         run: |
           echo "Building ${{ matrix.project.name }}@${{ matrix.project.version }}"
           echo "Path: ${{ matrix.project.path }}"
-          # docker build -t ${{ matrix.project.identifier }}:${{ matrix.project.version }} \
-          #     ${{ matrix.project.path }}
+          # docker build -t ${{ matrix.project.identifier }}:\
+          #   ${{ matrix.project.version }} ${{ matrix.project.path }}
 
   build-npm:
     needs: scan
