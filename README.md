@@ -77,9 +77,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       projects: ${{ steps.scan.outputs.projects }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout
+    uses: actions/checkout@v4
 
       - name: Scan Turborepo Projects
         id: scan
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       projects: ${{ steps.scan.outputs.projects }}
-    steps:
+steps:
       - uses: actions/checkout@v4
       - id: scan
         uses: relab-services/turborepo-projects-version@v1
@@ -120,7 +120,8 @@ jobs:
         run: |
           echo "Building ${{ matrix.project.name }}@${{ matrix.project.version }}"
           echo "Path: ${{ matrix.project.path }}"
-          # docker build -t ${{ matrix.project.identifier }}:${{ matrix.project.version }} ${{ matrix.project.path }}
+          # docker build -t ${{ matrix.project.identifier }}:${{ matrix.project.version }} \
+          #   ${{ matrix.project.path }}
 
   build-npm:
     needs: scan
@@ -171,14 +172,14 @@ property in its `package.json`. This property can be:
 The action supports any build type you define. Common examples include:
 
 - `docker` - For containerized applications
-- `npm` - For NPM packages
+- `npm` - For npm packages
 - `static` - For static sites
 - `serverless` - For serverless functions
 - `mobile` - For mobile applications
 
 ### Project Structure Example
 
-```
+```text
 my-monorepo/
 ├── turbo.json
 ├── package.json (with turbo dependency)
@@ -204,30 +205,30 @@ my-monorepo/
 ## How It Works
 
 1. **Detection**: Scans the root `package.json` to find the Turborepo version
-2. **Discovery**: Uses `turbo ls --output=json` to discover all packages in the
+1. **Discovery**: Uses `turbo ls --output=json` to discover all packages in the
    workspace
-3. **Analysis**: Reads each package's `package.json` to extract project
+1. **Analysis**: Reads each package's `package.json` to extract project
    information
-4. **Filtering**: Only includes projects that have a `build` property
-5. **Grouping**: Groups projects by their build type(s)
-6. **Output**: Returns structured JSON with all discovered projects
+1. **Filtering**: Only includes projects that have a `build` property
+1. **Grouping**: Groups projects by their build type(s)
+1. **Output**: Returns structured JSON with all discovered projects
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Action fails with "Repo does not have Turborepo installed"**
+#### Action fails with "Repository does not have Turborepo installed"
 
 - Ensure `turbo` is listed in your root `package.json` dependencies or
   devDependencies
 - Verify your Turborepo configuration is valid
 
-**No projects found in output**
+#### No projects found in output
 
 - Check that your packages have a `build` property in their `package.json`
 - Verify that Turborepo can discover your packages with `turbo ls`
 
-**Projects missing from results**
+#### Projects missing from results
 
 - Ensure the project's `package.json` exists and is valid JSON
 - Confirm the `build` property is present and not empty
