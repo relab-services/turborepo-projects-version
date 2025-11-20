@@ -27307,12 +27307,14 @@ const getPackageInfo = (packagePath) => {
             .toLowerCase()
             .replace(/^-+|-+$/g, '');
         const build = packageJson.build;
+        const args = packageJson.args || {};
         return {
             path: packagePath,
             name: packageName,
             version,
             identifier,
-            build
+            build,
+            args
         };
     }
     catch {

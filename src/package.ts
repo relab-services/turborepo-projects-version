@@ -10,6 +10,7 @@ import * as core from '@actions/core'
  * @property {string} [name] - The name of the project/package, if specified in package.json.
  * @property {string} [identifier] - A normalized identifier derived from the package name.
  * @property {string | string[]} [build] - The build type(s) associated with the project/package, as specified in package.json.
+ * @property {Record<string, string>} [args] - The arguments associated with the project/package, as specified in package.json.
  */
 export type ProjectInfo = {
   path: string
@@ -17,6 +18,7 @@ export type ProjectInfo = {
   name?: string
   identifier?: string
   build?: string | string[]
+  args: Record<string, string>
 }
 
 /**
@@ -46,13 +48,15 @@ export const getPackageInfo = (
       .toLowerCase()
       .replace(/^-+|-+$/g, '')
     const build: string | string[] | undefined = packageJson.build
+    const args: Record<string, string> = packageJson.args || {}
 
     return {
       path: packagePath,
       name: packageName,
       version,
       identifier,
-      build
+      build,
+      args
     }
   } catch {
     throw new Error(`Failed to retrieve package info: ${packageJsonPath}`)
